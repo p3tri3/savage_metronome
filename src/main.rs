@@ -1,5 +1,46 @@
 use eframe::egui;
+#[cfg(feature = "audio")]
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
+#[cfg(not(feature = "audio"))]
+mod rodio {
+    pub struct OutputStream;
+    pub struct OutputStreamHandle;
+    impl Clone for OutputStreamHandle {
+        fn clone(&self) -> Self {
+            Self
+        }
+    }
+    impl OutputStream {
+        pub fn try_default() -> Result<(Self, OutputStreamHandle), ()> {
+            Err(())
+        }
+    }
+    pub struct Sink;
+    impl Sink {
+        pub fn try_new(_h: &OutputStreamHandle) -> Result<Self, ()> {
+            Err(())
+        }
+        pub fn append<S>(&self, _s: S) {}
+        pub fn detach(self) {}
+    }
+    pub mod source {
+        pub struct SineWave;
+        impl SineWave {
+            pub fn new(_f: f32) -> Self {
+                Self
+            }
+            pub fn take_duration(self, _d: std::time::Duration) -> Self {
+                Self
+            }
+            pub fn amplify(self, _v: f32) -> Self {
+                Self
+            }
+        }
+    }
+}
+#[cfg(not(feature = "audio"))]
+use rodio::*;
+
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -348,5 +389,57 @@ impl eframe::App for MetronomeApp {
                 state.is_running = false;
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn test_calculate_pitch() {
+        let tuning = TuningState {
+            reference_pitch: 440.0,
+            octave: 4,
+            note_index: 9, // A
+        };
+        let pitch = MetronomeApp::calculate_pitch(&tuning);
+        assert!((pitch - 440.0).abs() < 0.001);
+
+        let tuning_c4 = TuningState {
+            reference_pitch: 440.0,
+            octave: 4,
+            note_index: 0, // C
+        };
+        let pitch_c4 = MetronomeApp::calculate_pitch(&tuning_c4);
+        assert!((pitch_c4 - 261.625).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_calculate_tap_tempo() {
+        let mut app = MetronomeApp::new();
+        let now = Instant::now();
+
+        // Simulating taps every 0.5 seconds (120 BPM)
+        app.tap_times.push(now);
+        app.tap_times.push(now + Duration::from_millis(500));
+        app.tap_times.push(now + Duration::from_millis(1000));
+
+        app.calculate_tap_tempo();
+
+        let state = app.state.lock().unwrap();
+        assert!((state.bpm - 120.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_metronome_initialization() {
+        let app = MetronomeApp::new();
+        let state = app.state.lock().unwrap();
+
+        assert_eq!(state.bpm, 100.0);
+        assert_eq!(state.volume, 0.5);
+        assert!(!state.is_running);
+        assert!(state.visual_enabled);
     }
 }
