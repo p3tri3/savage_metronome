@@ -1,11 +1,11 @@
 // Handles the audio playback thread and sound generation.
 use crate::domain::metronome::Metronome;
-use rodio::{OutputStreamHandle, Sink, Source};
+use rodio::{mixer::Mixer, Sink, Source};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, stream_handle: OutputStreamHandle) {
+pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
     thread::spawn(move || {
         let mut next_tick = Instant::now();
 
@@ -32,7 +32,7 @@ pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, stream_handle: Outpu
             }
 
             if Instant::now() >= next_tick {
-                let sink = Sink::try_new(&stream_handle).unwrap();
+                let sink = Sink::connect_new(&mixer);
 
                 let interval = 60.0 / bpm;
                 let max_dur = interval * 0.95;

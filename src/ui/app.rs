@@ -5,7 +5,7 @@ use crate::domain::tempo::calculate_tap_tempo;
 use crate::presets::preset::{calculate_pitch, MetronomePreset, NOTE_NAMES};
 use crate::presets::storage::{load_preset, save_preset};
 use eframe::egui;
-use rodio::{OutputStream, OutputStreamHandle};
+use rodio::{mixer::Mixer, OutputStream, OutputStreamBuilder};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -13,15 +13,18 @@ pub struct MetronomeApp {
     state: Arc<Mutex<Metronome>>,
     tap_times: Vec<Instant>,
     _output_stream: Option<OutputStream>,
-    stream_handle: Option<OutputStreamHandle>,
+    mixer: Option<Mixer>,
 }
 
 impl MetronomeApp {
     pub fn new() -> Self {
-        let (_output_stream, stream_handle) = OutputStream::try_default()
-            .ok()
-            .map(|(stream, handle)| (Some(stream), Some(handle)))
-            .unwrap_or((None, None));
+        let (_output_stream, mixer) = match OutputStreamBuilder::open_default_stream() {
+            Ok(stream) => {
+                let mixer = stream.mixer().clone();
+                (Some(stream), Some(mixer))
+            }
+            Err(_) => (None, None),
+        };
 
         let preset = load_preset().unwrap_or_default();
         let metronome_state = Metronome::from(preset);
@@ -30,7 +33,7 @@ impl MetronomeApp {
             state: Arc::new(Mutex::new(metronome_state)),
             tap_times: Vec::new(),
             _output_stream,
-            stream_handle,
+            mixer,
         }
     }
 }
@@ -51,8 +54,8 @@ impl eframe::App for MetronomeApp {
                 if ui.button("Start").clicked() {
                     if !state.is_running {
                         state.is_running = true;
-                        if let Some(handle) = self.stream_handle.clone() {
-                            start_metronome_thread(self.state.clone(), handle);
+                        if let Some(mixer) = self.mixer.clone() {
+                            start_metronome_thread(self.state.clone(), mixer);
                         }
                     }
                 }
@@ -74,7 +77,7 @@ impl eframe::App for MetronomeApp {
                 ui.add(
                     egui::DragValue::new(&mut state.bpm)
                         .speed(1.0)
-                        .clamp_range(20.0..=300.0)
+                        .range(20.0..=300.0)
                         .prefix("BPM: "),
                 );
                 if ui.button("+1").clicked() {
@@ -102,7 +105,7 @@ impl eframe::App for MetronomeApp {
                 let size = egui::Vec2::new(20.0, 20.0);
                 let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
                 ui.painter()
-                    .rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::BLACK));
+                    .rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::BLACK), egui::StrokeKind::Outside);
                 if state.visual_enabled && state.is_running {
                     if let Some(last) = state.last_beat {
                         if last.elapsed().as_millis() < 100 {
@@ -143,7 +146,7 @@ impl eframe::App for MetronomeApp {
             // Octave
             ui.horizontal(|ui| {
                 ui.label("Octave:");
-                egui::ComboBox::from_id_source("octave_combo")
+                egui::ComboBox::from_id_salt("octave_combo")
                     .selected_text(format!("{}", state.tuning.octave))
                     .show_ui(ui, |ui| {
                         for o in 0..=8 {
@@ -157,7 +160,7 @@ impl eframe::App for MetronomeApp {
             // Note
             ui.horizontal(|ui| {
                 ui.label("Note:");
-                egui::ComboBox::from_id_source("note_combo")
+                egui::ComboBox::from_id_salt("note_combo")
                     .selected_text(NOTE_NAMES[state.tuning.note_index])
                     .show_ui(ui, |ui| {
                         for (i, name) in NOTE_NAMES.iter().enumerate() {

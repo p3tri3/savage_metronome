@@ -12,6 +12,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Savage Metronome",
         options,
-        Box::new(|_cc| Box::new(MetronomeApp::new())),
+        Box::new(|_cc| Ok(Box::new(MetronomeApp::new()))),
     )
 }
