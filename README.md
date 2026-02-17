@@ -1,13 +1,20 @@
 # Savage Metronome
 
-A primitive metronome desktop application with features such as
-
-- Tap tempo + visual cue
+A primitive metronome desktop application with features such as:
+- Tap tempo
+- Optional visual cue (for beat timing)
 - Sound pitch and duration adjustment controls (from click to beep)
+- Simple preset saving
+
+<img src="assets/savage_metronome.png" alt="Savage Metronome" width="300"/>
+
+## Screenshot
 
 ![Screenshot](doc/screenshot.png)
 
 ## Usage
+
+### Windows
 
 1.  Build the project:
 
@@ -19,6 +26,18 @@ A primitive metronome desktop application with features such as
 
     ``` bash
     cargo run --release
+    ```
+
+### MacOS
+
+1. To generate the .app bundle:
+
+    ``` bash
+    cargo install cargo-bundle
+    ```
+    
+    ``` bash
+    cargo bundle --release
     ```
 
 ## License

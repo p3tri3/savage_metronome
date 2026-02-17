@@ -1,4 +1,0 @@
-- Domain layer has zero UI dependencies.
-- Timing calculations are deterministic.
-- Audio engine cannot own business logic.
-- Preset format backward compatibility must be maintained.

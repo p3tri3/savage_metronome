@@ -15,5 +15,17 @@ directories = "6.0.0"
 default = ["audio"]
 audio = ["dep:rodio"]
 
+[build-dependencies]
+embed-resource = "2"
+
 [dev-dependencies]
 tempfile = "3.10"
+
+[package.metadata.bundle]
+name = "Savage Metronome"
+identifier = "com.petri.savage-metronome"
+icon = ["assets/savage_metronome.icns"]
+version = "0.1.0"
+copyright = "Copyright (c) 2025 petri"
+category = "Music"
+short_description = "A desktop metronome application"
