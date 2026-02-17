@@ -5,7 +5,13 @@ use crate::domain::tempo::calculate_tap_tempo;
 use crate::presets::preset::{calculate_pitch, MetronomePreset, NOTE_NAMES};
 use crate::presets::storage::{load_preset, save_preset};
 use eframe::egui;
-use rodio::{mixer::Mixer, OutputStream, OutputStreamBuilder};
+
+#[cfg(feature = "audio")]
+use rodio as audio_crate;
+#[cfg(not(feature = "audio"))]
+use crate::audio::mock as audio_crate;
+
+use audio_crate::{mixer::Mixer, OutputStream, OutputStreamBuilder};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
