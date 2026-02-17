@@ -1,9 +1,15 @@
 // Handles the audio playback thread and sound generation.
 use crate::domain::metronome::Metronome;
-use rodio::{mixer::Mixer, Sink, Source};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+
+#[cfg(feature = "audio")]
+use rodio as audio_crate;
+#[cfg(not(feature = "audio"))]
+use crate::audio::mock as audio_crate;
+
+use audio_crate::{mixer::Mixer, source::SineWave, source::SourceExt, Sink};
 
 pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
     thread::spawn(move || {
@@ -41,9 +47,10 @@ pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
                 let cycles = (target_dur * pitch).round().max(1.0);
                 let duration = Duration::from_secs_f32(cycles / pitch);
 
-                let source = rodio::source::SineWave::new(pitch)
+                let source = SineWave::new(pitch)
                     .take_duration(duration)
                     .amplify(volume);
+
                 sink.append(source);
                 sink.detach();
 
@@ -60,4 +67,27 @@ pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::metronome::Metronome;
+    use crate::presets::preset::MetronomePreset;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    #[test]
+    fn test_start_stop_metronome_thread() {
+        let state = Arc::new(Mutex::new(Metronome::from(MetronomePreset::default())));
+        state.lock().unwrap().is_running = true;
+
+        let mixer = Mixer;
+        start_metronome_thread(state.clone(), mixer);
+
+        std::thread::sleep(Duration::from_millis(50));
+        state.lock().unwrap().is_running = false;
+        // The thread should exit now
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }

@@ -40,3 +40,42 @@ pub fn load_preset_from_path(path: &Path) -> Result<MetronomePreset, io::Error> 
     let json_string = fs::read_to_string(path)?;
     serde_json::from_str(&json_string).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_load_non_existent_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("non_existent.json");
+        let result = load_preset_from_path(&file_path);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_load_invalid_json() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("invalid.json");
+        fs::write(&file_path, "{ \"invalid\": json }").unwrap();
+        let result = load_preset_from_path(&file_path);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_save_and_load_preset_success() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("preset.json");
+        let preset = MetronomePreset {
+            bpm: 144.0,
+            volume: 0.8,
+            ..Default::default()
+        };
+
+        save_preset_to_path(&preset, &file_path).unwrap();
+        let loaded = load_preset_from_path(&file_path).unwrap();
+        assert_eq!(preset, loaded);
+    }
+}

@@ -40,3 +40,59 @@ impl Metronome {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::presets::preset::Tuning;
+
+    #[test]
+    fn test_from_preset() {
+        let preset = MetronomePreset {
+            bpm: 150.0,
+            volume: 0.6,
+            pitch_hz: 440.0,
+            beep_duration: 0.01,
+            visual_enabled: false,
+            tuning: Tuning {
+                reference_pitch: 440.0,
+                octave: 4,
+                note_index: 9,
+            },
+        };
+
+        let metronome = Metronome::from(preset.clone());
+        assert_eq!(metronome.bpm, 150.0);
+        assert_eq!(metronome.volume, 0.6);
+        assert_eq!(metronome.pitch_hz, 440.0);
+        assert_eq!(metronome.beep_duration, 0.01);
+        assert_eq!(metronome.visual_enabled, false);
+        assert_eq!(metronome.is_running, false); // Important: should be false
+        assert_eq!(metronome.tuning, preset.tuning);
+    }
+
+    #[test]
+    fn test_to_preset() {
+        let metronome = Metronome {
+            bpm: 120.0,
+            volume: 0.5,
+            pitch_hz: 880.0,
+            beep_duration: 0.02,
+            is_running: true,
+            visual_enabled: true,
+            last_beat: None,
+            tuning: Tuning {
+                reference_pitch: 440.0,
+                octave: 5,
+                note_index: 9,
+            },
+        };
+
+        let preset = metronome.to_preset();
+        assert_eq!(preset.bpm, 120.0);
+        assert_eq!(preset.volume, 0.5);
+        assert_eq!(preset.pitch_hz, 880.0);
+        assert_eq!(preset.beep_duration, 0.02);
+        assert_eq!(preset.visual_enabled, true);
+        assert_eq!(preset.tuning, metronome.tuning);
+    }
+}
