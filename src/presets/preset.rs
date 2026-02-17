@@ -1,0 +1,68 @@
+// Defines the structure for a savable metronome preset.
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct MetronomePreset {
+    pub bpm: f32,
+    pub volume: f32,
+    pub pitch_hz: f32,
+    pub beep_duration: f32,
+    pub visual_enabled: bool,
+    pub tuning: Tuning,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct Tuning {
+    pub reference_pitch: f32,
+    pub octave: u8,
+    pub note_index: usize,
+}
+
+impl Default for MetronomePreset {
+    fn default() -> Self {
+        let tuning = Tuning {
+            reference_pitch: 440.0,
+            octave: 6,
+            note_index: 0, // C
+        };
+        Self {
+            bpm: 100.0,
+            volume: 0.5,
+            pitch_hz: calculate_pitch(&tuning),
+            beep_duration: 0.005,
+            visual_enabled: true,
+            tuning,
+        }
+    }
+}
+
+pub const NOTE_NAMES: [&str; 12] = [
+    "C", "C#/Db", "D", "D#/Eb", "E", "F", "F#/Gb", "G", "G#/Ab", "A", "A#/Bb", "B",
+];
+
+pub fn calculate_pitch(tuning: &Tuning) -> f32 {
+    let n = (tuning.octave as i32 + 1) * 12 + tuning.note_index as i32;
+    tuning.reference_pitch * 2.0_f32.powf((n - 69) as f32 / 12.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calculate_pitch() {
+        let tuning = Tuning {
+            reference_pitch: 440.0,
+            octave: 4,
+            note_index: 9, // A
+        };
+        assert!((calculate_pitch(&tuning) - 440.0).abs() < 0.001);
+
+        let tuning_c4 = Tuning {
+            reference_pitch: 440.0,
+            octave: 4,
+            note_index: 0, // C
+        };
+        assert!((calculate_pitch(&tuning_c4) - 261.625).abs() < 0.01);
+    }
+}

@@ -1,0 +1,1 @@
+// Defines application-wide settings structures.
