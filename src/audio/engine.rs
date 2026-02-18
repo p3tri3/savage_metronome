@@ -9,7 +9,7 @@ use rodio as audio_crate;
 #[cfg(not(feature = "audio"))]
 use crate::audio::mock as audio_crate;
 
-use audio_crate::{mixer::Mixer, source::SineWave, source::SourceExt, Sink};
+use audio_crate::{mixer::Mixer, source::SineWave, Sink, Source};
 
 pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
     thread::spawn(move || {
@@ -69,7 +69,7 @@ pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
     });
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "audio")))]
 mod tests {
     use super::*;
     use crate::domain::metronome::Metronome;

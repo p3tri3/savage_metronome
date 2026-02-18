@@ -14,7 +14,14 @@ impl Sink {
     pub fn detach(self) {}
 }
 
-pub trait Source {}
+pub trait Source: Sized {
+    fn amplify(self, _value: f32) -> source::Amplify<Self> {
+        source::Amplify(self)
+    }
+    fn take_duration(self, _duration: std::time::Duration) -> source::TakeDuration<Self> {
+        source::TakeDuration(self)
+    }
+}
 
 pub mod source {
     pub struct SineWave;
@@ -25,25 +32,14 @@ pub mod source {
     }
     impl super::Source for SineWave {}
 
-    pub struct Amplify<S>(S);
-    impl<S> super::Source for Amplify<S> {}
+    pub struct Amplify<S>(pub S);
+    impl<S: super::Source> super::Source for Amplify<S> {}
 
-    pub struct TakeDuration<S>(S);
-    impl<S> super::Source for TakeDuration<S> {}
-
-    pub trait SourceExt: super::Source + Sized {
-        fn amplify(self, _value: f32) -> Amplify<Self> {
-            Amplify(self)
-        }
-        fn take_duration(self, _duration: std::time::Duration) -> TakeDuration<Self> {
-            TakeDuration(self)
-        }
-    }
-    impl<S: super::Source> SourceExt for S {}
+    pub struct TakeDuration<S>(pub S);
+    impl<S: super::Source> super::Source for TakeDuration<S> {}
 }
 
 pub use self::source::SineWave;
-pub use self::source::SourceExt;
 
 pub struct OutputStream;
 pub struct OutputStreamBuilder;
