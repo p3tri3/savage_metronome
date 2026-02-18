@@ -2,6 +2,7 @@
 use crate::presets::preset::{MetronomePreset, Tuning};
 use std::time::Instant;
 
+#[derive(Debug)]
 pub struct Metronome {
     pub bpm: f32,
     pub volume: f32,

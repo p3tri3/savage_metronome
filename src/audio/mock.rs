@@ -43,7 +43,9 @@ pub use self::source::SineWave;
 
 pub struct AudioError;
 
-pub struct OutputStream;
+pub struct OutputStream {
+    mixer: Mixer,
+}
 pub struct OutputStreamBuilder;
 impl OutputStreamBuilder {
     pub fn open_default_stream() -> Result<OutputStream, AudioError> {
@@ -52,6 +54,6 @@ impl OutputStreamBuilder {
 }
 impl OutputStream {
     pub fn mixer(&self) -> &Mixer {
-        &Mixer
+        &self.mixer
     }
 }

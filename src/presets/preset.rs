@@ -40,6 +40,11 @@ pub const NOTE_NAMES: [&str; 12] = [
     "C", "C#/Db", "D", "D#/Eb", "E", "F", "F#/Gb", "G", "G#/Ab", "A", "A#/Bb", "B",
 ];
 
+/// Compute the frequency (Hz) for a given tuning using the equal-temperament formula.
+///
+/// MIDI note number: `n = (octave + 1) * 12 + note_index`
+/// where octave 4, note A (index 9) → n = 69, the standard A4 reference pitch.
+/// Frequency: `f = reference_pitch * 2^((n - 69) / 12)`
 pub fn calculate_pitch(tuning: &Tuning) -> f32 {
     let n = (tuning.octave as i32 + 1) * 12 + tuning.note_index as i32;
     tuning.reference_pitch * 2.0_f32.powf((n - 69) as f32 / 12.0)

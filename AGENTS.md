@@ -46,6 +46,7 @@ Shared state between UI and audio thread: `Arc<Mutex<Metronome>>`.
 - **Domain stays pure:** no UI/audio/persistence dependencies.
 - **Audio thread independence:** beat scheduling must not depend on UI thread responsiveness.
 - **Preset backward compatibility:** existing preset JSON must continue to load.
+- **Preset sanitization on load:** `MetronomePreset::sanitize()` must be called on every deserialized preset (already done in `load_preset_from_path`). Do not bypass it.
 - **Timing accuracy > UI responsiveness** when tradeoffs are required.
 
 ## Editing guardrails
@@ -53,6 +54,7 @@ Shared state between UI and audio thread: `Arc<Mutex<Metronome>>`.
 - Prefer **small, targeted changes**; avoid broad refactors unless requested.
 - If changing preset schema/serialization: implement **backward-compatible parsing** and add tests.
 - If touching audio/threading: keep synchronization minimal; avoid UI-thread blocking.
+- **Stop-token pattern:** always create a fresh `Arc<AtomicBool>` stop token when starting the audio thread and store it in `MetronomeApp::thread_stop`. Signal `true` on Stop before clearing `is_running` so old threads exit without racing against a new session.
 - Keep tests deterministic; do not introduce timing-flaky tests.
 
 ## Feature gating
@@ -82,10 +84,10 @@ Mock backend (`src/audio/mock.rs`) mirrors the rodio surface used by `engine.rs`
 
 - `src/main.rs` — entry point, window config, `eframe::run_native`
 - `src/ui/app.rs` — `MetronomeApp` + all UI rendering
-- `src/audio/engine.rs` — `start_metronome_thread(state, mixer)` beat loop + playback
+- `src/audio/engine.rs` — `start_metronome_thread(state, mixer, stop)` beat loop + playback; `stop: Arc<AtomicBool>` is a per-session stop token (set to `true` to terminate the thread)
 - `src/audio/mock.rs` — mock `Mixer/Sink/Source/SineWave/OutputStream` when audio feature disabled
 - `src/domain/metronome.rs` — `Metronome` state
-- `src/domain/tempo.rs` — `calculate_tap_tempo(times)` (avg up to 8 intervals)
+- `src/domain/tempo.rs` — `calculate_tap_tempo(times)` (avg up to 7 intervals; ring buffer holds 8 timestamps)
 - `src/presets/preset.rs` — `MetronomePreset`, tuning, pitch calculation
 - `src/presets/storage.rs` — `save_preset` / `load_preset`
 - `build.rs` — Windows icon embedding via `embed-resource`
