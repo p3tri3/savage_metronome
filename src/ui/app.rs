@@ -5,6 +5,7 @@ use crate::domain::tempo::calculate_tap_tempo;
 use crate::presets::preset::{MetronomePreset, NOTE_NAMES, calculate_pitch};
 use crate::presets::storage::{load_preset, save_preset};
 use eframe::egui;
+use std::collections::VecDeque;
 
 #[cfg(not(feature = "audio"))]
 use crate::audio::mock as audio_crate;
@@ -16,12 +17,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+/// Maximum number of tap timestamps retained for BPM averaging (yields up to N-1 intervals).
+const TAP_TEMPO_BUFFER_SIZE: usize = 8;
+
 pub struct MetronomeApp {
     state: Arc<Mutex<Metronome>>,
-    tap_times: Vec<Instant>,
+    tap_times: VecDeque<Instant>,
     _output_stream: Option<OutputStream>,
     mixer: Option<Mixer>,
     thread_stop: Arc<AtomicBool>,
+    status_message: Option<String>,
 }
 
 impl Default for MetronomeApp {
@@ -45,17 +50,18 @@ impl MetronomeApp {
 
         Self {
             state: Arc::new(Mutex::new(metronome_state)),
-            tap_times: Vec::new(),
+            tap_times: VecDeque::new(),
             _output_stream,
             mixer,
             thread_stop: Arc::new(AtomicBool::new(false)),
+            status_message: None,
         }
     }
 }
 
 impl eframe::App for MetronomeApp {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
 
         if state.is_running {
             ctx.request_repaint();
@@ -77,6 +83,7 @@ impl eframe::App for MetronomeApp {
                 if ui.button("Stop").clicked() {
                     self.thread_stop.store(true, Ordering::Relaxed);
                     state.is_running = false;
+                    state.last_beat = None;
                 }
             });
 
@@ -104,11 +111,11 @@ impl eframe::App for MetronomeApp {
                 }
             });
             if ui.button("Tap Tempo").clicked() {
-                self.tap_times.push(Instant::now());
-                if self.tap_times.len() > 8 {
-                    self.tap_times.remove(0);
+                self.tap_times.push_back(Instant::now());
+                if self.tap_times.len() > TAP_TEMPO_BUFFER_SIZE {
+                    self.tap_times.pop_front();
                 }
-                if let Some(new_bpm) = calculate_tap_tempo(&self.tap_times) {
+                if let Some(new_bpm) = calculate_tap_tempo(self.tap_times.make_contiguous()) {
                     state.bpm = new_bpm.clamp(20.0, 300.0);
                 }
             }
@@ -143,11 +150,11 @@ impl eframe::App for MetronomeApp {
             ui.horizontal(|ui| {
                 ui.label("Ref. Pitch:");
                 if ui.button("-1.0").clicked() {
-                    state.tuning.reference_pitch -= 1.0;
+                    state.tuning.reference_pitch = (state.tuning.reference_pitch - 1.0).max(1.0);
                     pitch_changed = true;
                 }
                 if ui.button("-0.1").clicked() {
-                    state.tuning.reference_pitch -= 0.1;
+                    state.tuning.reference_pitch = (state.tuning.reference_pitch - 0.1).max(1.0);
                     pitch_changed = true;
                 }
 
@@ -219,22 +226,29 @@ impl eframe::App for MetronomeApp {
 
             ui.heading("Presets");
             ui.horizontal(|ui| {
-                if ui.button("Save").clicked()
-                    && let Err(e) = save_preset(&state.to_preset())
-                {
-                    eprintln!("Failed to save preset: {}", e);
+                if ui.button("Save").clicked() {
+                    match save_preset(&state.to_preset()) {
+                        Ok(()) => self.status_message = None,
+                        Err(e) => self.status_message = Some(format!("Save failed: {e}")),
+                    }
                 }
                 if ui.button("Load").clicked() {
-                    if let Ok(preset) = load_preset() {
-                        *state = preset.into();
-                    } else {
-                        eprintln!("Failed to load preset.");
+                    match load_preset() {
+                        Ok(preset) => {
+                            *state = preset.into();
+                            self.status_message = None;
+                        }
+                        Err(e) => self.status_message = Some(format!("Load failed: {e}")),
                     }
                 }
                 if ui.button("Reset").clicked() {
                     *state = MetronomePreset::default().into();
+                    self.status_message = None;
                 }
             });
+            if let Some(msg) = &self.status_message {
+                ui.colored_label(egui::Color32::RED, msg);
+            }
         });
     }
 }

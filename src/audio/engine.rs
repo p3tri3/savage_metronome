@@ -24,7 +24,7 @@ pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer, stop: 
             }
 
             let (bpm, volume, pitch, beep_duration, is_running) = {
-                let mut state_guard = state.lock().unwrap();
+                let mut state_guard = state.lock().unwrap_or_else(|e| e.into_inner());
                 if !state_guard.is_running {
                     break;
                 }
