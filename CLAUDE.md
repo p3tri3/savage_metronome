@@ -4,20 +4,32 @@ Guidance for **Claude Code** in this repository.
 
 ## Canonical instructions
 
-The repository-wide, stable agent rules live in **AGENTS.md**.  
+The repository-wide, stable agent rules live in **AGENTS.md**.
 Treat **AGENTS.md as the source of truth** for architecture, invariants, and validation.
+
+## Quick start
+
+```bash
+cargo build
+cargo run --release
+cargo fmt          # run before finishing any change
+```
 
 ## Claude-specific preferences (keep lightweight)
 
-- Prefer a short plan + incremental edits (small diffs).
-- When touching logic that affects behavior, add/adjust tests in the same change.
-- Avoid speculative refactors; keep changes scoped to the task.
+- Small diffs: plan first, then one focused change at a time.
+- Always run `cargo fmt` before wrapping up.
+- If touching behavior: add or adjust tests in the same commit.
+- No speculative refactors; scope changes tightly to the task.
+- Must compile in both modes: `cargo test` **and** `cargo test --no-default-features`
+  (the second disables rodio and uses the mock audio backend — keeps tests headless).
 
 ## Handy test invocations
 
 ```bash
 cargo test
-cargo test --no-default-features
-cargo test --test preset_integration
-cargo test tempo::tests
+cargo test --no-default-features          # mock audio backend
+cargo test --test preset_integration      # JSON save/load round-trip
+cargo test --test metronome_flow          # full start/stop flow (mock)
+cargo test tempo::tests                   # tap-tempo unit tests
 ```
