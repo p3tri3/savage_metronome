@@ -1,21 +1,28 @@
 // Handles the audio playback thread and sound generation.
 use crate::domain::metronome::Metronome;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-#[cfg(feature = "audio")]
-use rodio as audio_crate;
 #[cfg(not(feature = "audio"))]
 use crate::audio::mock as audio_crate;
+#[cfg(feature = "audio")]
+use rodio as audio_crate;
 
-use audio_crate::{mixer::Mixer, source::SineWave, Sink, Source};
+use audio_crate::{Sink, Source, mixer::Mixer, source::SineWave};
 
-pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
+pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer, stop: Arc<AtomicBool>) {
     thread::spawn(move || {
         let mut next_tick = Instant::now();
 
         loop {
+            // Check the per-session stop token before acquiring the lock so that
+            // a new session starting while this thread sleeps causes an immediate exit.
+            if stop.load(Ordering::Relaxed) {
+                break;
+            }
+
             let (bpm, volume, pitch, beep_duration, is_running) = {
                 let mut state_guard = state.lock().unwrap();
                 if !state_guard.is_running {
@@ -47,9 +54,7 @@ pub fn start_metronome_thread(state: Arc<Mutex<Metronome>>, mixer: Mixer) {
                 let cycles = (target_dur * pitch).round().max(1.0);
                 let duration = Duration::from_secs_f32(cycles / pitch);
 
-                let source = SineWave::new(pitch)
-                    .take_duration(duration)
-                    .amplify(volume);
+                let source = SineWave::new(pitch).take_duration(duration).amplify(volume);
 
                 sink.append(source);
                 sink.detach();
@@ -83,7 +88,8 @@ mod tests {
         state.lock().unwrap().is_running = true;
 
         let mixer = Mixer;
-        start_metronome_thread(state.clone(), mixer);
+        let stop = Arc::new(AtomicBool::new(false));
+        start_metronome_thread(state.clone(), mixer, stop);
 
         std::thread::sleep(Duration::from_millis(50));
         state.lock().unwrap().is_running = false;

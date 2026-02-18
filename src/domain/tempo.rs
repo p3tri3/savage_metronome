@@ -12,11 +12,7 @@ pub fn calculate_tap_tempo(tap_times: &[Instant]) -> Option<f32> {
         .collect();
 
     let avg = intervals.iter().sum::<f32>() / intervals.len() as f32;
-    if avg > 0.0 {
-        Some(60.0 / avg)
-    } else {
-        None
-    }
+    if avg > 0.0 { Some(60.0 / avg) } else { None }
 }
 
 #[cfg(test)]

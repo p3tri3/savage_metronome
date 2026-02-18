@@ -2,16 +2,17 @@
 use crate::audio::engine::start_metronome_thread;
 use crate::domain::metronome::Metronome;
 use crate::domain::tempo::calculate_tap_tempo;
-use crate::presets::preset::{calculate_pitch, MetronomePreset, NOTE_NAMES};
+use crate::presets::preset::{MetronomePreset, NOTE_NAMES, calculate_pitch};
 use crate::presets::storage::{load_preset, save_preset};
 use eframe::egui;
 
-#[cfg(feature = "audio")]
-use rodio as audio_crate;
 #[cfg(not(feature = "audio"))]
 use crate::audio::mock as audio_crate;
+#[cfg(feature = "audio")]
+use rodio as audio_crate;
 
-use audio_crate::{mixer::Mixer, OutputStream, OutputStreamBuilder};
+use audio_crate::{OutputStream, OutputStreamBuilder, mixer::Mixer};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -20,6 +21,13 @@ pub struct MetronomeApp {
     tap_times: Vec<Instant>,
     _output_stream: Option<OutputStream>,
     mixer: Option<Mixer>,
+    thread_stop: Arc<AtomicBool>,
+}
+
+impl Default for MetronomeApp {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MetronomeApp {
@@ -40,6 +48,7 @@ impl MetronomeApp {
             tap_times: Vec::new(),
             _output_stream,
             mixer,
+            thread_stop: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -57,19 +66,20 @@ impl eframe::App for MetronomeApp {
             ui.separator();
 
             ui.horizontal(|ui| {
-                if ui.button("Start").clicked() {
-                    if !state.is_running {
-                        state.is_running = true;
-                        if let Some(mixer) = self.mixer.clone() {
-                            start_metronome_thread(self.state.clone(), mixer);
-                        }
+                if ui.button("Start").clicked() && !state.is_running {
+                    state.is_running = true;
+                    if let Some(mixer) = self.mixer.clone() {
+                        let stop = Arc::new(AtomicBool::new(false));
+                        self.thread_stop = stop.clone();
+                        start_metronome_thread(self.state.clone(), mixer, stop);
                     }
                 }
                 if ui.button("Stop").clicked() {
+                    self.thread_stop.store(true, Ordering::Relaxed);
                     state.is_running = false;
                 }
             });
-            
+
             ui.separator();
 
             ui.heading("Tempo");
@@ -110,14 +120,18 @@ impl eframe::App for MetronomeApp {
                 ui.radio_value(&mut state.visual_enabled, false, "Off");
                 let size = egui::Vec2::new(20.0, 20.0);
                 let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-                ui.painter()
-                    .rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::BLACK), egui::StrokeKind::Outside);
-                if state.visual_enabled && state.is_running {
-                    if let Some(last) = state.last_beat {
-                        if last.elapsed().as_millis() < 100 {
-                            ui.painter().rect_filled(rect, 0.0, egui::Color32::BLACK);
-                        }
-                    }
+                ui.painter().rect_stroke(
+                    rect,
+                    0.0,
+                    egui::Stroke::new(1.0, egui::Color32::BLACK),
+                    egui::StrokeKind::Outside,
+                );
+                if state.visual_enabled
+                    && state.is_running
+                    && let Some(last) = state.last_beat
+                    && last.elapsed().as_millis() < 100
+                {
+                    ui.painter().rect_filled(rect, 0.0, egui::Color32::BLACK);
                 }
             });
             ui.separator();
@@ -156,9 +170,12 @@ impl eframe::App for MetronomeApp {
                     .selected_text(format!("{}", state.tuning.octave))
                     .show_ui(ui, |ui| {
                         for o in 0..=8 {
-                             if ui.selectable_value(&mut state.tuning.octave, o, format!("{}", o)).clicked() {
-                                 pitch_changed = true;
-                             }
+                            if ui
+                                .selectable_value(&mut state.tuning.octave, o, format!("{}", o))
+                                .clicked()
+                            {
+                                pitch_changed = true;
+                            }
                         }
                     });
             });
@@ -170,9 +187,12 @@ impl eframe::App for MetronomeApp {
                     .selected_text(NOTE_NAMES[state.tuning.note_index])
                     .show_ui(ui, |ui| {
                         for (i, name) in NOTE_NAMES.iter().enumerate() {
-                             if ui.selectable_value(&mut state.tuning.note_index, i, *name).clicked() {
-                                 pitch_changed = true;
-                             }
+                            if ui
+                                .selectable_value(&mut state.tuning.note_index, i, *name)
+                                .clicked()
+                            {
+                                pitch_changed = true;
+                            }
                         }
                     });
             });
@@ -185,10 +205,7 @@ impl eframe::App for MetronomeApp {
 
             ui.separator();
 
-            ui.add(
-                egui::Slider::new(&mut state.volume, 0.0..=1.0)
-                    .text("Volume"),
-            );
+            ui.add(egui::Slider::new(&mut state.volume, 0.0..=1.0).text("Volume"));
 
             let max_duration = 60.0 / state.bpm;
             ui.add(
@@ -202,10 +219,10 @@ impl eframe::App for MetronomeApp {
 
             ui.heading("Presets");
             ui.horizontal(|ui| {
-                if ui.button("Save").clicked() {
-                    if let Err(e) = save_preset(&state.to_preset()) {
-                        eprintln!("Failed to save preset: {}", e);
-                    }
+                if ui.button("Save").clicked()
+                    && let Err(e) = save_preset(&state.to_preset())
+                {
+                    eprintln!("Failed to save preset: {}", e);
                 }
                 if ui.button("Load").clicked() {
                     if let Ok(preset) = load_preset() {
@@ -218,7 +235,6 @@ impl eframe::App for MetronomeApp {
                     *state = MetronomePreset::default().into();
                 }
             });
-            
         });
     }
 }

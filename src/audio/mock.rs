@@ -41,11 +41,13 @@ pub mod source {
 
 pub use self::source::SineWave;
 
+pub struct AudioError;
+
 pub struct OutputStream;
 pub struct OutputStreamBuilder;
 impl OutputStreamBuilder {
-    pub fn open_default_stream() -> Result<OutputStream, ()> {
-        Err(())
+    pub fn open_default_stream() -> Result<OutputStream, AudioError> {
+        Err(AudioError)
     }
 }
 impl OutputStream {

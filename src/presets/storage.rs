@@ -31,14 +31,15 @@ pub fn load_preset() -> Result<MetronomePreset, io::Error> {
 }
 
 pub fn save_preset_to_path(preset: &MetronomePreset, path: &Path) -> Result<(), io::Error> {
-    let json_string =
-        serde_json::to_string_pretty(preset).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json_string = serde_json::to_string_pretty(preset).map_err(io::Error::other)?;
     fs::write(path, json_string)
 }
 
 pub fn load_preset_from_path(path: &Path) -> Result<MetronomePreset, io::Error> {
     let json_string = fs::read_to_string(path)?;
-    serde_json::from_str(&json_string).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    serde_json::from_str::<MetronomePreset>(&json_string)
+        .map(MetronomePreset::sanitize)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 #[cfg(test)]
 mod tests {

@@ -45,6 +45,37 @@ pub fn calculate_pitch(tuning: &Tuning) -> f32 {
     tuning.reference_pitch * 2.0_f32.powf((n - 69) as f32 / 12.0)
 }
 
+impl MetronomePreset {
+    /// Clamp all fields to safe ranges after deserialization from untrusted input.
+    pub fn sanitize(mut self) -> Self {
+        self.bpm = if self.bpm.is_finite() {
+            self.bpm.clamp(20.0, 300.0)
+        } else {
+            100.0
+        };
+        self.volume = if self.volume.is_finite() {
+            self.volume.clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+        self.beep_duration = if self.beep_duration.is_finite() && self.beep_duration > 0.0 {
+            self.beep_duration
+        } else {
+            0.005
+        };
+        self.tuning.note_index = self.tuning.note_index.min(NOTE_NAMES.len() - 1);
+        self.tuning.reference_pitch =
+            if self.tuning.reference_pitch.is_finite() && self.tuning.reference_pitch > 0.0 {
+                self.tuning.reference_pitch
+            } else {
+                440.0
+            };
+        // Recalculate pitch_hz from the now-sanitized tuning to ensure consistency.
+        self.pitch_hz = calculate_pitch(&self.tuning);
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
