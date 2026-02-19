@@ -66,8 +66,8 @@ mod tests {
         assert_eq!(metronome.volume, 0.6);
         assert_eq!(metronome.pitch_hz, 440.0);
         assert_eq!(metronome.beep_duration, 0.01);
-        assert_eq!(metronome.visual_enabled, false);
-        assert_eq!(metronome.is_running, false); // Important: should be false
+        assert!(!metronome.visual_enabled);
+        assert!(!metronome.is_running); // Important: should be false
         assert_eq!(metronome.tuning, preset.tuning);
     }
 
@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(preset.volume, 0.5);
         assert_eq!(preset.pitch_hz, 880.0);
         assert_eq!(preset.beep_duration, 0.02);
-        assert_eq!(preset.visual_enabled, true);
+        assert!(preset.visual_enabled);
         assert_eq!(preset.tuning, metronome.tuning);
     }
 }

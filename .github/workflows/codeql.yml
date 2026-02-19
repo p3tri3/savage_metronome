@@ -1,0 +1,36 @@
+name: CodeQL
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  schedule:
+    - cron: "23 3 * * 1" # Mondays 03:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (CodeQL)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ALSA dev libraries
+        run: sudo apt-get update -q && sudo apt-get install -y libasound2-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: rust
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3

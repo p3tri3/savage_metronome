@@ -1,5 +1,9 @@
 # Savage Metronome
 
+[![CI](https://github.com/p3tri3/savage_metronome/actions/workflows/ci.yml/badge.svg)](https://github.com/p3tri3/savage_metronome/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/p3tri3/savage_metronome/graph/badge.svg)](https://codecov.io/gh/p3tri3/savage_metronome)
+[![CodeQL](https://github.com/p3tri3/savage_metronome/actions/workflows/codeql.yml/badge.svg)](https://github.com/p3tri3/savage_metronome/actions/workflows/codeql.yml)
+
 A primitive metronome desktop application with features such as:
 - Tap tempo
 - Optional visual cue (for beat timing)
